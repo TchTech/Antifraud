@@ -1,0 +1,8 @@
+.local/
+.tools/
+.gradle/
+**/build/
+local.properties
+*.log
+*.exe
+__pycache__/

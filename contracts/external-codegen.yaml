@@ -1,0 +1,6 @@
+package: external
+generate:
+  models: true
+  gin-server: true
+  embedded-spec: true
+output: internal/api/external/api.gen.go

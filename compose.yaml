@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:18.1-bookworm
+    environment:
+      POSTGRES_USER: demo
+      POSTGRES_PASSWORD: synthetic-local-only
+      POSTGRES_DB: antifraud
+    ports: ['127.0.0.1:55433:5432']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U demo -d antifraud']
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    volumes: ['pgdata:/var/lib/postgresql']
+  migrate:
+    build: .
+    command: ['/app/risk', '-migrate', 'up']
+    environment: &db
+      DATABASE_URL: postgres://demo:synthetic-local-only@postgres:5432/antifraud?sslmode=disable
+    depends_on:
+      postgres: {condition: service_healthy}
+  network-collector:
+    build: .
+    command: ['/app/network-collector']
+    environment: *db
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+  risk:
+    build: .
+    command: ['/app/risk']
+    environment:
+      <<: *db
+      LISTEN_ADDR: 0.0.0.0:8081
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+  gateway:
+    build: .
+    environment:
+      RISK_URL: http://risk:8081
+      LISTEN_ADDR: 0.0.0.0:8080
+    ports: ['127.0.0.1:8080:8080']
+    depends_on: [risk, network-collector]
+    healthcheck:
+      test: ['CMD', '/app/gateway', '-healthcheck']
+      interval: 2s
+      timeout: 2s
+      retries: 30
+volumes:
+  pgdata:
