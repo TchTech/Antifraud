@@ -37,7 +37,7 @@ jobs:
           POSTGRES_PASSWORD: synthetic-local-only
           POSTGRES_DB: antifraud_test
         ports: ['5432:5432']
-        options: --health-cmd 'pg_isready -U demo -d antifraud_test' --health-interval 2s --health-timeout 2s --health-retries 30
+        options: --health-cmd "pg_isready -U demo -d antifraud_test" --health-interval 2s --health-timeout 2s --health-retries 30
     env:
       TEST_DATABASE_URL: postgres://demo:synthetic-local-only@127.0.0.1:5432/antifraud_test?sslmode=disable
     steps:
