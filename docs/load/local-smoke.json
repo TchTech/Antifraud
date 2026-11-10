@@ -1,0 +1,13 @@
+{
+  "kind": "sequential smoke, not ADR load acceptance",
+  "count": 200,
+  "warmup": 10,
+  "concurrency": 1,
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python": "3.14.3",
+  "p50Ms": 2.99429998267442,
+  "p95Ms": 27.330499957315624,
+  "p99Ms": 29.348699958063662,
+  "maxMs": 30.3582000778988,
+  "elapsedSeconds": 1.8807215000269935
+}

@@ -1,0 +1,8 @@
+.git
+.local
+.tools
+apps/mobile/.gradle
+**/build
+*.docx
+*.xlsx
+*.png

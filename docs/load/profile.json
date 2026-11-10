@@ -1,0 +1,16 @@
+{
+  "source": "ADR-007, accepted educational assumptions",
+  "targetP99Ms": 200,
+  "warmupSeconds": 60,
+  "steadySeconds": 1800,
+  "burstSeconds": 600,
+  "incomingEventsPerSecond": {"steady": 100, "burst": 1000},
+  "protectedChecksPerSecond": {"steady": 10, "burst": 100},
+  "networkRegistrationsPerSecond": {"steady": 1000, "burst": 1000},
+  "activeAccounts": 100000,
+  "eventBytesMean": 2000,
+  "eventHistoryDays": 90,
+  "registrationRetentionDays": 30,
+  "decisionRetentionDays": 365,
+  "notes": "Network rate provisional. Full general event ingestion, prefill, HA and 100k-account authorization need later slices. No user wait in measured latency."
+}

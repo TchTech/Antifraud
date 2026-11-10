@@ -1,0 +1,276 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Synthetic antifraud external",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/v1/evaluate": {
+      "post": {
+        "operationId": "Evaluate",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Evaluation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "decision",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Decision"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid request"
+          },
+          "409": {
+            "description": "binding or confirmation rejected"
+          },
+          "503": {
+            "description": "fail closed"
+          }
+        }
+      }
+    },
+    "/v1/confirm": {
+      "post": {
+        "operationId": "Confirm",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Confirmation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "decision",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Decision"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid request"
+          },
+          "409": {
+            "description": "binding or confirmation rejected"
+          },
+          "503": {
+            "description": "fail closed"
+          }
+        }
+      }
+    },
+    "/v1/state/{account}": {
+      "get": {
+        "operationId": "State",
+        "parameters": [
+          {
+            "name": "account",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "demo-fraud",
+                "demo-legal",
+                "demo-clean"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "synthetic state and audit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/State"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "unavailable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Evaluation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "accountId": {
+            "type": "string",
+            "enum": [
+              "demo-fraud",
+              "demo-legal",
+              "demo-clean"
+            ]
+          },
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target": {
+            "type": "string",
+            "enum": [
+              "sink-a",
+              "sink-b"
+            ]
+          },
+          "device": {
+            "type": "string",
+            "enum": [
+              "known",
+              "new"
+            ]
+          },
+          "attestation": {
+            "type": "string",
+            "enum": [
+              "demo-valid",
+              "unknown"
+            ]
+          }
+        },
+        "required": [
+          "accountId",
+          "operationId",
+          "target",
+          "device",
+          "attestation"
+        ]
+      },
+      "Confirmation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "accountId": {
+            "type": "string",
+            "enum": [
+              "demo-fraud",
+              "demo-legal",
+              "demo-clean"
+            ]
+          },
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "confirmationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "proof": {
+            "type": "string",
+            "enum": [
+              "demo-approved"
+            ]
+          }
+        },
+        "required": [
+          "accountId",
+          "operationId",
+          "confirmationId",
+          "proof"
+        ]
+      },
+      "Decision": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "decisionId": {
+            "type": "string"
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "allow",
+              "step_up",
+              "hold"
+            ]
+          },
+          "policyVersion": {
+            "type": "string"
+          },
+          "confirmationId": {
+            "type": "string"
+          },
+          "operationId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "decisionId",
+          "result",
+          "policyVersion",
+          "operationId"
+        ]
+      },
+      "State": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "target": {
+            "type": "string"
+          },
+          "changes": {
+            "type": "integer"
+          },
+          "decisions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "audit": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "target",
+          "changes",
+          "decisions",
+          "audit"
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      }
+    }
+  }
+}
