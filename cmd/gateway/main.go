@@ -18,7 +18,9 @@ func main() {
 		if e != nil {
 			os.Exit(1)
 		}
-		r.Body.Close()
+		if err := r.Body.Close(); err != nil {
+			os.Exit(1)
+		}
 		if r.StatusCode != 200 {
 			os.Exit(1)
 		}

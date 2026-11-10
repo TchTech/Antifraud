@@ -2,7 +2,7 @@
 
 Рабочее учебное демо «Мой МТС», только синтетика. Kotlin/Compose → Gin gateway → Gin risk → PostgreSQL; collector моделирует регистрации SIM, outbox доставляет команду локальному симулятору услуги. Сервер меняет переадресацию только после проверки актуального разрешения в транзакции. Аттестация `demo-valid` и подтверждение `demo-approved` — явно тестовые подстановки, защиты реального аккаунта они не обеспечивают.
 
-Требования: Git, Go 1.25.7, Python 3, Make (либо PowerShell), Docker Engine + Compose v2 с `--wait`. Для Android: JDK 17, SDK 34; Gradle 8.2.1 входит через wrapper. OpenSpec CLI 1.11.0 нужен для работы со спецификацией. Генераторы загружаются закреплёнными версиями; нужен доступ к Go proxy/sumdb, Google Maven и Maven Central. Python demo/checks не требуют pip-пакетов.
+Требования: Git, Go 1.26.10, Python 3, Make (либо PowerShell), Docker Engine + Compose v2 с `--wait`. Для Android: JDK 17, SDK 34; Gradle 8.2.1 входит через wrapper. OpenSpec CLI 1.11.0 нужен для работы со спецификацией. Генераторы загружаются закреплёнными версиями; нужен доступ к Go proxy/sumdb, Google Maven и Maven Central. Python demo/checks не требуют pip-пакетов.
 
 Для знакомства с кодом и выбора рабочего процесса: [архитектура проекта и сценарии применения навыков](docs/architecture-and-workflows.md).
 
@@ -56,4 +56,4 @@ API-контракты: `contracts/external.json`, `contracts/internal.json` (Op
 
 Документация: [архитектура и приёмочный HA-контур](docs/architecture/README.md), [ADR по стеку](docs/adr/ADR-008-stack.md), [исходные требования и покрытие](docs/traceability.md), [OpenSpec](openspec/changes/protect-call-forwarding/design.md), [фактические проверки](docs/verification.md), [будущий нагрузочный профиль](docs/load/README.md), [grill-with-docs](docs/grill-with-docs.md). ADR-007 сохраняет Accepted для учебного проекта. Автоматическое секционирование/очистка, HA, Play Integrity, выбор passkey/ключа, recovery и отдельный сервис услуги остаются задачами следующего этапа. USSD и кол-центр не подключены.
 
-Проверки CI: Go vet/test, повторная генерация, PostgreSQL integration и migration down/up, HTTP Compose demo, OpenSpec validation, Android assembleDebug. Измерения локального smoke не доказывают p99≤200мс под полной нагрузкой ADR или RPO/RTO. Изменения оставляются для ревью без публикации/деплоя.
+Проверки CI: gofmt, Go vet/test с `-race`, повторная генерация, PostgreSQL integration и migration down/up, HTTP Compose demo, OpenSpec validation, Android assembleDebug. Отдельный workflow security: gosec (SAST), govulncheck (SCA), gitleaks (секреты в истории), Trivy (скан образа, HIGH/CRITICAL блокируют), плюс Dependabot для Go/Gradle/Docker/Actions. Измерения локального smoke не доказывают p99≤200мс под полной нагрузкой ADR или RPO/RTO. Изменения оставляются для ревью без публикации/деплоя.
