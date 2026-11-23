@@ -39,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -170,7 +171,7 @@ internal fun ScreenContent(content: @Composable ColumnScope.() -> Unit) {
 
 @Composable
 internal fun RibbonHeader(content: @Composable ColumnScope.() -> Unit) {
-    Box(Modifier.fillMaxWidth().background(MobileColors.Ice)) {
+    Box(Modifier.fillMaxWidth().clipToBounds().background(MobileColors.Ice)) {
         Canvas(Modifier.matchParentSize()) {
             val ribbon = Brush.horizontalGradient(
                 0f to Color(0xFFB7D8F7),
