@@ -2,7 +2,7 @@
 
 Рабочее учебное демо «Мой МТС», только синтетика. Kotlin/Compose → Gin gateway → Gin risk → PostgreSQL; collector моделирует регистрации SIM, outbox доставляет команду локальному симулятору услуги. Сервер меняет переадресацию только после проверки актуального разрешения в транзакции. Аттестация `demo-valid` и подтверждение `demo-approved` — явно тестовые подстановки, защиты реального аккаунта они не обеспечивают.
 
-Требования: Git, Go 1.26.10, Python 3, Make (либо PowerShell), Docker Engine + Compose v2 с `--wait`. Для Android: JDK 17, SDK 34; Gradle 8.2.1 входит через wrapper. OpenSpec CLI 1.11.0 нужен для работы со спецификацией. Генераторы загружаются закреплёнными версиями; нужен доступ к Go proxy/sumdb, Google Maven и Maven Central. Python demo/checks не требуют pip-пакетов.
+Требования: Git, Go 1.26.11, Python 3, Make (либо PowerShell), Docker Engine + Compose v2 с `--wait`. Для Android: JDK 17, SDK 34. Gradle 8.2.1 входит через wrapper. OpenSpec CLI 1.11.0 нужен для работы со спецификацией. Генераторы загружаются закреплёнными версиями и требуют доступа к Go proxy/sumdb, Google Maven и Maven Central. Python demo/checks обходятся стандартной библиотекой.
 
 Начните с [цели и объёма к защите](docs/project.md), [методики измерений](docs/evaluation.md) и [реестра защитных пробелов](docs/security-gaps.md). Карта кода и рабочие процессы описаны в [архитектуре проекта](docs/architecture-and-workflows.md).
 

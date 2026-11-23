@@ -2,7 +2,7 @@ module antifraud
 
 go 1.26.0
 
-toolchain go1.26.10
+toolchain go1.26.11
 
 require (
 	github.com/getkin/kin-openapi v0.149.0
