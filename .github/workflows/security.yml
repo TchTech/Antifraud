@@ -53,7 +53,7 @@ jobs:
           severity: 'HIGH,CRITICAL'
           ignore-unfixed: true
           exit-code: '0'
-      - uses: github/codeql-action/upload-sarif@b7b84b636b4f90c9b31da1bc5f72bfadd5b31410 # v3
+      - uses: github/codeql-action/upload-sarif@d2aacf54c2fbc910db8d7ec338fdb54ea48c692d # v3
         if: always()
         with: {sarif_file: 'trivy-results.sarif'}
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
