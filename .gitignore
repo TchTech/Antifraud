@@ -1,6 +1,8 @@
 .local/
 .tools/
 .gradle/
+.idea/
+*.iml
 **/build/
 local.properties
 *.log

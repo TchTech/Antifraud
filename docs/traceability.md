@@ -7,7 +7,7 @@
 | REQ-F01 | collector, event_receipt | TestLateSignalAndReplay | partial: SIM events only |
 | REQ-F02 | policy.Calculate | TestPolicy | partial: device/SIM/travel only |
 | REQ-F03 | policy.Decide | TestPolicy; TestC4HTTPScenarios; TestSyntheticProtectionControls | demo: assumptions pending approval |
-| REQ-F04 | core.Deliver | TestStaleAuthorizationAndDuplicateDelivery | demo: local service transaction |
+| REQ-F04 | core.Deliver | TestStaleAuthorizationAndDuplicateDelivery; docs/authorization-proof.md | demo: local service transaction; SEC-02 mapping unverified |
 | REQ-F05 | future slice | team acceptance pending | outside first slice |
 | REQ-F06 | core.Confirm | TestConcurrentConfirmation; TestBindingsAndExpiry; TestSyntheticProtectionControls | partial: demo proof, no crypto |
 | REQ-F07 | collector/profile | TestC4HTTPScenarios; TestPolicy | partial: synthetic source only |
@@ -34,14 +34,14 @@
 | REQ-F28 | future slice | team acceptance pending | outside first slice |
 | REQ-F29 | architecture docs | docs/architecture/README.md | documented demo coverage |
 | REQ-F30 | collector reevaluation | TestLateSignalAndReplay | partial: no recovery-contact operation |
-| REQ-N01 | service simulator | TestC4HTTPScenarios; TestSyntheticProtectionControls | partial: fixed scenarios only |
+| REQ-N01 | service simulator | TestC4HTTPScenarios; TestSyntheticProtectionControls; make evaluate | partial: fixed scenarios only |
 | REQ-N02 | future slice | team acceptance pending | outside first slice |
-| REQ-N03 | app and policy | TestSyntheticProtectionControls; docs/evaluation.md | partial: fixed legal controls; rates and limits pending |
-| REQ-N04 | gateway/risk | scripts/latency.py; docs/load | target pending full load |
+| REQ-N03 | app and policy | TestSyntheticProtectionControls; make evaluate | partial: fixed legal controls; evaluation population and limits pending |
+| REQ-N04 | gateway/risk | make load; scripts/latency.py | partial: gateway load pilot; target pending full load |
 | REQ-N05 | profile/freshness | TestPolicy; TestSyntheticProtectionControls | partial: synthetic freshness |
 | REQ-N06 | future slice | team acceptance pending | outside first slice |
 | REQ-N07 | future slice | team acceptance pending | outside first slice |
-| REQ-N08 | load profile | docs/load/profile.json | pending full simultaneous run |
+| REQ-N08 | load profile | make load; make evaluate-burst; docs/load/profile.json | partial: protected-check stream and scenario outcomes; pending full simultaneous run |
 | REQ-N09 | confirmation/permit/outbox | TestConcurrentConfirmation; TestBindingsAndExpiry; TestExpiredPermit; TestStaleAuthorizationAndDuplicateDelivery | partial: test proof, local execution |
 | REQ-N10 | synthetic-only contract | TestC4HTTPScenarios; AGENTS.md | partial: retention cleanup deferred |
 | REQ-N11 | runtime ACL | TestRuntimeRoleACL | partial: no real identity/TLS |

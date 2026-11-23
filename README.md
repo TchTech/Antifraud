@@ -60,4 +60,12 @@ API-контракты: `contracts/external.json`, `contracts/internal.json` (Op
 
 `make lint` проверяет формат Go, `go vet`, синтетические значения OpenAPI, трассировку требований и SHA-пины Actions. `make compose-lint` проверяет привязку к loopback и изоляцию контейнеров. `make protection` с тем же `TEST_DATABASE_URL`, что у `make e2e`, выдаёт события Go test в JSON Lines для защитной матрицы. [Результат и интерпретация прогона](docs/verification.md).
 
+`make evaluate` или `./scripts/dev.ps1 evaluate` с `TEST_DATABASE_URL` той же выделенной БД формирует `metrics.json` и `metrics.md`. В PR отчёт показывает дельты относительно базового коммита. [Замер и критерии для агента](docs/evaluation.md).
+
+`make evaluate-burst` или `./scripts/dev.ps1 evaluate-burst` сравнивает исходы тех же пяти случаев без фона и при всплеске. [Как читать результат](docs/evaluation.md#те-же-сценарии-при-всплеске)
+
+`make load` или `./scripts/dev.ps1 load` измеряет задержку, достигнутые запросы/с, ошибки и пропуски на отдельном loopback-шлюзе. [Запуск стенда и сравнение результатов](docs/load/README.md)
+
+Workflow `release metrics` сохраняет сводку и сырые отчёты у черновика релиза. [Порядок запуска](docs/release-metrics.md)
+
 Проверки CI: линтеры, Go test с `-race`, повторная генерация, PostgreSQL integration и migration down/up, HTTP Compose demo, OpenSpec validation, Android assembleDebug. Отдельный workflow security: gosec (SAST), govulncheck (SCA), gitleaks (секреты в истории), Trivy (скан образа, HIGH/CRITICAL блокируют), плюс Dependabot для Go/Gradle/Docker/Actions. Приёмка задержки под полной нагрузкой ADR и проверка RPO/RTO требуют отдельных прогонов.

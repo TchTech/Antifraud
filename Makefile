@@ -1,4 +1,4 @@
-.PHONY: generate lint compose-lint check demo migrate e2e protection android
+.PHONY: generate lint compose-lint check demo migrate e2e protection evaluate evaluate-burst load proof android
 generate:
 	python scripts/contracts.py
 	go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.4.1 --config contracts/external-codegen.yaml contracts/external.json
@@ -17,6 +17,14 @@ e2e:
 	go test -tags integration -count=1 -v ./tests/...
 protection:
 	@go test -tags integration -count=1 -json -run '^TestSyntheticProtectionControls$$' ./tests
+evaluate:
+	python scripts/evaluate.py
+evaluate-burst: evaluate
+	python scripts/evaluate.py --burst --baseline .local/evaluation/metrics.json --output .local/evaluation-burst
+load:
+	python scripts/load.py
+proof:
+	cd formal && lean -DwarningAsError=true Authorization.lean
 demo:
 	docker compose up --build -d --wait
 	python scripts/demo.py

@@ -1,0 +1,160 @@
+name: release metrics
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag of the draft release
+        type: string
+        required: true
+      baseline_tag:
+        description: Published baseline tag (defaults to the newest stable release)
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: release-metrics-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  measure:
+    if: github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      commit: ${{ steps.metadata.outputs.commit }}
+      artifact_id: ${{ steps.archive.outputs.artifact-id }}
+    steps:
+      - name: Check out the release tooling
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Resolve the published baseline
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRAFT_TAG: ${{ inputs.tag }}
+          BASELINE_TAG: ${{ inputs.baseline_tag }}
+        run: |
+          git check-ref-format "refs/tags/$DRAFT_TAG"
+          if [[ -z "$BASELINE_TAG" ]]; then
+            BASELINE_TAG=$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --exclude-pre-releases \
+              --limit 1 --json tagName --jq '.[0].tagName // ""')
+          fi
+          if [[ -n "$BASELINE_TAG" ]]; then
+            git check-ref-format "refs/tags/$BASELINE_TAG"
+            test "$(gh release view --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft -- "$BASELINE_TAG")" = false
+          fi
+          printf 'baseline=%s\n' "$BASELINE_TAG" >> "$GITHUB_OUTPUT"
+      - name: Check out the draft tag
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          path: candidate
+          persist-credentials: false
+      - name: Check out the published baseline
+        if: steps.release.outputs.baseline != ''
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: refs/tags/${{ steps.release.outputs.baseline }}
+          path: baseline
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: candidate/go.mod
+          cache-dependency-path: candidate/go.sum
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with: {python-version: '3.12'}
+      - name: Measure both revisions on this runner
+        id: metadata
+        env:
+          DRAFT_TAG: ${{ inputs.tag }}
+          BASELINE_TAG: ${{ steps.release.outputs.baseline }}
+        run: |
+          mkdir -p evidence
+          lscpu --json | jq --arg session "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
+            --arg runner "$RUNNER_ENVIRONMENT" --arg compose "$(docker compose version --short)" \
+            --arg docker "$(docker version --format '{{.Server.Version}}')" \
+            --arg tools_commit "$(git rev-parse HEAD)" \
+            '{measurement_session:$session,runner:$runner,compose:$compose,docker:$docker,tools_commit:$tools_commit,cpu:.lscpu}' \
+            > evidence/environment.json
+          commit=$(git -C candidate rev-parse HEAD)
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          baseline_args=()
+          if [[ -n "$BASELINE_TAG" ]]; then
+            baseline_commit=$(git -C baseline rev-parse HEAD)
+            baseline_args=(--baseline-tag "$BASELINE_TAG" --baseline-commit "$baseline_commit")
+            bash scripts/collect-release-evidence.sh baseline "$PWD" evidence/baseline baseline
+          fi
+          bash scripts/collect-release-evidence.sh candidate "$PWD" evidence/candidate candidate
+          python scripts/release_metrics.py --tag "$DRAFT_TAG" --commit "$commit" \
+            "${baseline_args[@]}" --evidence evidence --output release-assets
+          cat release-assets/release-metrics.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Preserve collection logs in Actions
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-collection-logs-${{ github.run_attempt }}
+          path: evidence/**/*.log
+          retention-days: 14
+      - name: Preserve the release assets
+        id: archive
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-assets-${{ github.run_attempt }}
+          path: release-assets/
+          if-no-files-found: error
+
+  attach:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: measure
+    permissions:
+      contents: write
+    steps:
+      - name: Read the current tag without running its code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          path: tag-check
+          persist-credentials: false
+      - name: Download the exact measured assets
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          artifact-ids: ${{ needs.measure.outputs.artifact_id }}
+          path: release-assets
+          merge-multiple: true
+      - name: Attach the evidence to the draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRAFT_TAG: ${{ inputs.tag }}
+          MEASURED_COMMIT: ${{ needs.measure.outputs.commit }}
+        run: |
+          test "$(git -C tag-check rev-parse HEAD)" = "$MEASURED_COMMIT"
+          id=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" | jq -ser \
+            --arg tag "$DRAFT_TAG" '[.[][] | select(.draft and .tag_name == $tag)] | if length == 1 then .[0].id else error("one matching draft release is required") end')
+          assets=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases/$id/assets?per_page=100" | jq -s add)
+          pending=()
+          for name in release-evidence.zip release-metrics.md; do
+            path="release-assets/$name"
+            checksum=$(sha256sum "$path" | cut -d' ' -f1)
+            if jq -e --arg name "$name" 'any(.[]; .name == $name)' <<< "$assets" > /dev/null; then
+              if ! jq -e --arg name "$name" --arg sha "sha256:$checksum" \
+                'any(.[]; .name == $name and .state == "uploaded" and .digest == $sha)' <<< "$assets" > /dev/null; then
+                echo "An asset with different bytes already exists: $name" >&2
+                exit 1
+              fi
+            else
+              pending+=("$path")
+            fi
+          done
+          if (( ${#pending[@]} )); then
+            gh release upload --repo "$GITHUB_REPOSITORY" -- "$DRAFT_TAG" "${pending[@]}"
+          fi
