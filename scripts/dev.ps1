@@ -1,13 +1,20 @@
-param([ValidateSet('generate','check','e2e','demo','migrate','build','android')][string]$Task='check')
+param([ValidateSet('generate','lint','compose-lint','check','e2e','protection','demo','migrate','build','android')][string]$Task='check')
 $ErrorActionPreference = 'Stop'
 Set-Location (Split-Path $PSScriptRoot -Parent)
 $env:GOCACHE = "$PWD/.local/go-build"
 $env:GOMODCACHE = "$PWD/.local/go-mod"
 function Run([scriptblock]$Command) { & $Command; if ($LASTEXITCODE) { throw "Command failed: $Command ($LASTEXITCODE)" } }
+function Lint {
+    Run { python scripts/lint.py }
+    Run { go vet ./... }
+}
 switch ($Task) {
     generate { Run { & ./scripts/generate.ps1 } }
-    check { Run { go vet ./... }; Run { go test ./... } }
+    lint { Lint }
+    compose-lint { Run { python scripts/lint.py --compose } }
+    check { Lint; Run { go test ./... } }
     e2e { Run { go test -tags integration -count=1 -v ./tests/... } }
+    protection { Run { go test -tags integration -count=1 -json -run '^TestSyntheticProtectionControls$' ./tests } }
     migrate { Run { go run ./cmd/risk -migrate up } }
     build {
         New-Item -ItemType Directory -Force .local/bin | Out-Null

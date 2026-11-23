@@ -4,7 +4,7 @@
 
 Требования: Git, Go 1.26.10, Python 3, Make (либо PowerShell), Docker Engine + Compose v2 с `--wait`. Для Android: JDK 17, SDK 34; Gradle 8.2.1 входит через wrapper. OpenSpec CLI 1.11.0 нужен для работы со спецификацией. Генераторы загружаются закреплёнными версиями; нужен доступ к Go proxy/sumdb, Google Maven и Maven Central. Python demo/checks не требуют pip-пакетов.
 
-Для знакомства с кодом и выбора рабочего процесса: [архитектура проекта и сценарии применения навыков](docs/architecture-and-workflows.md).
+Начните с [цели и объёма к защите](docs/project.md), [методики измерений](docs/evaluation.md) и [реестра защитных пробелов](docs/security-gaps.md). Карта кода и рабочие процессы описаны в [архитектуре проекта](docs/architecture-and-workflows.md).
 
 Быстрый запуск с Docker:
 
@@ -13,6 +13,7 @@ make demo
 python scripts/demo.py --scenario fraud
 python scripts/demo.py --scenario legal
 make check
+make compose-lint
 make generate
 python scripts/verify_generated.py
 TEST_DATABASE_URL='postgres://demo:synthetic-local-only@127.0.0.1:55433/antifraud?sslmode=disable' make e2e
@@ -35,6 +36,7 @@ Windows без Docker, с установленным PostgreSQL 18:
 .\scripts\local-demo.ps1
 $env:TEST_DATABASE_URL='postgres://demo@127.0.0.1:55432/postgres?sslmode=disable'
 .\scripts\dev.ps1 e2e
+.\scripts\dev.ps1 protection
 .\scripts\dev.ps1 check
 .\scripts\dev.ps1 generate
 .\scripts\dev.ps1 android
@@ -56,4 +58,6 @@ API-контракты: `contracts/external.json`, `contracts/internal.json` (Op
 
 Документация: [архитектура и приёмочный HA-контур](docs/architecture/README.md), [ADR по стеку](docs/adr/ADR-008-stack.md), [исходные требования и покрытие](docs/traceability.md), [OpenSpec](openspec/changes/protect-call-forwarding/design.md), [фактические проверки](docs/verification.md), [будущий нагрузочный профиль](docs/load/README.md), [grill-with-docs](docs/grill-with-docs.md). ADR-007 сохраняет Accepted для учебного проекта. Автоматическое секционирование/очистка, HA, Play Integrity, выбор passkey/ключа, recovery и отдельный сервис услуги остаются задачами следующего этапа. USSD и кол-центр не подключены.
 
-Проверки CI: gofmt, Go vet/test с `-race`, повторная генерация, PostgreSQL integration и migration down/up, HTTP Compose demo, OpenSpec validation, Android assembleDebug. Отдельный workflow security: gosec (SAST), govulncheck (SCA), gitleaks (секреты в истории), Trivy (скан образа, HIGH/CRITICAL блокируют), плюс Dependabot для Go/Gradle/Docker/Actions. Измерения локального smoke не доказывают p99≤200мс под полной нагрузкой ADR или RPO/RTO. Изменения оставляются для ревью без публикации/деплоя.
+`make lint` проверяет формат Go, `go vet`, синтетические значения OpenAPI, трассировку требований и SHA-пины Actions. `make compose-lint` проверяет привязку к loopback и изоляцию контейнеров. `make protection` с тем же `TEST_DATABASE_URL`, что у `make e2e`, выдаёт события Go test в JSON Lines для защитной матрицы. [Результат и интерпретация прогона](docs/verification.md).
+
+Проверки CI: линтеры, Go test с `-race`, повторная генерация, PostgreSQL integration и migration down/up, HTTP Compose demo, OpenSpec validation, Android assembleDebug. Отдельный workflow security: gosec (SAST), govulncheck (SCA), gitleaks (секреты в истории), Trivy (скан образа, HIGH/CRITICAL блокируют), плюс Dependabot для Go/Gradle/Docker/Actions. Приёмка задержки под полной нагрузкой ADR и проверка RPO/RTO требуют отдельных прогонов.
