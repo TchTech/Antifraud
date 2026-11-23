@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -21,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.view.WindowCompat
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -66,7 +68,7 @@ private fun DemoApp(onStatusBarChanged: (Boolean) -> Unit) {
     var connection by rememberSaveable { mutableStateOf(StandConnection.EMULATOR) }
     var scenario by rememberSaveable { mutableStateOf(DemoScenario.LEGAL) }
     var pending by remember { mutableStateOf<PendingConfirmation?>(null) }
-    var decision by remember { mutableStateOf<DemoDecision?>(null) }
+    var outcome by remember { mutableStateOf<String?>(null) }
     var service by remember { mutableStateOf<DemoService?>(null) }
     var failure by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
@@ -74,7 +76,7 @@ private fun DemoApp(onStatusBarChanged: (Boolean) -> Unit) {
 
     fun clearResult() {
         pending = null
-        decision = null
+        outcome = null
         service = null
         failure = null
     }
@@ -97,6 +99,22 @@ private fun DemoApp(onStatusBarChanged: (Boolean) -> Unit) {
         }
     }
 
+    fun refreshService() {
+        val selected = scenario
+        request("Не удалось загрузить настройки переадресации.") { api ->
+            service = api.service(selected)
+        }
+    }
+
+    suspend fun refreshAfterAdd(api: DemoApi, selected: DemoScenario, previousChanges: Int) {
+        repeat(5) { attempt ->
+            if (attempt > 0) delay(250)
+            val current = api.service(selected)
+            service = current
+            if (current.target == TARGET && current.changes > previousChanges) return
+        }
+    }
+
     fun selectTab(destination: Page) {
         tab = destination
         page = destination
@@ -116,6 +134,9 @@ private fun DemoApp(onStatusBarChanged: (Boolean) -> Unit) {
     }
 
     BackHandler(enabled = page != Page.HOME) { goBack() }
+    LaunchedEffect(page) {
+        if (page == Page.FORWARDING) refreshService()
+    }
     SideEffect {
         onStatusBarChanged(page in listOf(Page.HOME, Page.CATALOG, Page.SUPPORT, Page.CALLS))
     }
@@ -140,36 +161,45 @@ private fun DemoApp(onStatusBarChanged: (Boolean) -> Unit) {
                         onForwarding = ::openForwarding,
                         onSupport = { selectTab(Page.SUPPORT) },
                     )
-                    Page.SUPPORT -> SupportPage(connection, busy) { selected ->
-                        if (selected != connection) {
-                            connection = selected
-                            clearResult()
-                        }
-                    }
-                    Page.CALLS -> CallsPage(::openForwarding)
-                    Page.SERVICES -> ServicesPage(::goBack, ::openForwarding)
-                    Page.FORWARDING -> ForwardingPage(
+                    Page.SUPPORT -> SupportPage(
+                        connection = connection,
                         scenario = scenario,
-                        onBack = ::goBack,
+                        busy = busy,
+                        onConnection = { selected ->
+                            if (selected != connection) {
+                                connection = selected
+                                clearResult()
+                            }
+                        },
                         onScenario = { selected ->
                             if (selected != scenario) {
                                 scenario = selected
                                 clearResult()
                             }
                         },
-                        decision = decision,
+                    )
+                    Page.CALLS -> CallsPage(::openForwarding)
+                    Page.SERVICES -> ServicesPage(::goBack, ::openForwarding)
+                    Page.FORWARDING -> ForwardingPage(
+                        scenario = scenario,
+                        onBack = ::goBack,
+                        outcome = outcome,
                         awaitingConfirmation = pending != null,
                         service = service,
                         failure = failure,
                         busy = busy,
                         onEvaluate = {
-                            clearResult()
+                            outcome = null
                             val selected = scenario
                             val operationId = UUID.randomUUID().toString()
-                            request("Не удалось проверить действие. Проверьте подключение к стенду.") { api ->
+                            request("Не удалось добавить переадресацию. Обновите настройки перед повторной попыткой.") { api ->
+                                val previous = api.service(selected)
+                                service = previous
+                                if (previous.target != "disabled") return@request
                                 val result = api.evaluate(selected, operationId)
-                                decision = result
+                                outcome = result.outcome
                                 pending = result.confirmationId?.let { PendingConfirmation(operationId, it) }
+                                if (result.outcome == "allow") refreshAfterAdd(api, selected, previous.changes)
                             }
                         },
                         onConfirm = {
@@ -177,19 +207,19 @@ private fun DemoApp(onStatusBarChanged: (Boolean) -> Unit) {
                             if (challenge != null && !busy) {
                                 pending = null
                                 val selected = scenario
-                                service = null
-                                request("Не удалось подтвердить действие. Проверьте состояние услуги перед новой попыткой.") { api ->
-                                    decision = api.confirm(selected, challenge.operationId, challenge.confirmationId)
+                                val previousChanges = service?.changes ?: 0
+                                request("Не удалось подтвердить переадресацию. Обновите настройки перед повторной попыткой.") { api ->
+                                    val result = api.confirm(selected, challenge.operationId, challenge.confirmationId)
+                                    outcome = result.outcome
+                                    if (result.outcome == "allow") refreshAfterAdd(api, selected, previousChanges)
                                 }
                             }
                         },
-                        onCancelConfirmation = { pending = null },
-                        onRefresh = {
-                            val selected = scenario
-                            request("Не удалось получить состояние услуги. Проверьте подключение к стенду.") { api ->
-                                service = api.service(selected)
-                            }
+                        onCancelConfirmation = {
+                            pending = null
+                            outcome = null
                         },
+                        onRefresh = ::refreshService,
                     )
                 }
             }

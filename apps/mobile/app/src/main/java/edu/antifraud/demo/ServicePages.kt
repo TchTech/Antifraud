@@ -294,7 +294,13 @@ private data class CatalogItem(
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
-internal fun SupportPage(connection: StandConnection, busy: Boolean, onConnection: (StandConnection) -> Unit) {
+internal fun SupportPage(
+    connection: StandConnection,
+    scenario: DemoScenario,
+    busy: Boolean,
+    onConnection: (StandConnection) -> Unit,
+    onScenario: (DemoScenario) -> Unit,
+) {
     ScrollPage {
         RibbonHeader { RibbonTitle("Поддержка", "Учебный профиль") }
         ScreenContent {
@@ -313,6 +319,16 @@ internal fun SupportPage(connection: StandConnection, busy: Boolean, onConnectio
             Text(connection.url, style = MaterialTheme.typography.bodyMedium, color = MobileColors.Muted)
             if (connection == StandConnection.DEVICE) {
                 Text("На компьютере выполните adb reverse tcp:8080 tcp:8080.", style = MaterialTheme.typography.bodyMedium)
+            }
+            Divider()
+            SectionTitle("Сценарий стенда")
+            for (option in DemoScenario.entries) {
+                FilterChip(
+                    selected = scenario == option,
+                    onClick = { onScenario(option) },
+                    enabled = !busy,
+                    label = { Text(option.title) },
+                )
             }
             Divider()
             SectionTitle("О приложении")

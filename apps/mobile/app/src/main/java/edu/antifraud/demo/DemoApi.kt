@@ -8,12 +8,10 @@ import java.net.URL
 
 internal data class DemoDecision(
     val outcome: String,
-    val version: String,
-    val id: String,
     val confirmationId: String?,
 )
 
-internal data class DemoService(val target: String, val changes: Int, val decisions: Int, val auditEntries: Int)
+internal data class DemoService(val target: String, val changes: Int)
 
 // The two connections are the isolated emulator bridge and the local adb tunnel.
 internal class DemoApi(private val connection: StandConnection) {
@@ -37,20 +35,13 @@ internal class DemoApi(private val connection: StandConnection) {
         return DemoService(
             target = response.getString("target"),
             changes = response.getInt("changes"),
-            decisions = response.historySize("decisions"),
-            auditEntries = response.historySize("audit"),
         )
     }
-
-    private fun JSONObject.historySize(key: String): Int =
-        if (has(key) && isNull(key)) 0 else getJSONArray(key).length()
 
     private fun JSONObject.decision(): DemoDecision {
         val outcome = getString("result")
         return DemoDecision(
             outcome = outcome,
-            version = getString("policyVersion"),
-            id = getString("decisionId"),
             confirmationId = optString("confirmationId").takeIf { outcome == "step_up" && it.isNotBlank() },
         )
     }
