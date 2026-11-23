@@ -2,106 +2,227 @@ package edu.antifraud.demo
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.Dispatchers
+import androidx.compose.ui.graphics.toArgb
+import androidx.core.view.WindowCompat
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
 import java.util.UUID
-
-// This transport is only for an isolated synthetic demo. It holds no credentials.
-class DemoApi(private val baseUrl: String) {
-    suspend fun request(path: String, body: JSONObject? = null): JSONObject = withContext(Dispatchers.IO) {
-        val connection = URL(baseUrl.trimEnd('/') + path).openConnection() as HttpURLConnection
-        connection.connectTimeout = 2500
-        connection.readTimeout = 3000
-        try {
-            if (body != null) {
-                connection.requestMethod = "POST"
-                connection.doOutput = true
-                connection.setRequestProperty("Content-Type", "application/json")
-                connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
-            }
-            val status = connection.responseCode
-            val stream = if (status in 200..299) connection.inputStream else connection.errorStream
-            val text = stream?.bufferedReader()?.use { it.readText() } ?: "HTTP $status"
-            check(status in 200..299) { "HTTP $status: $text" }
-            JSONObject(text)
-        } finally { connection.disconnect() }
-    }
-}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MaterialTheme { DemoScreen() } }
+        window.navigationBarColor = MobileColors.Surface.toArgb()
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = true
+            isAppearanceLightNavigationBars = true
+        }
+        setContent {
+            MobileTheme {
+                DemoApp { isRibbon ->
+                    window.statusBarColor = (if (isRibbon) MobileColors.Ice else MobileColors.Surface).toArgb()
+                }
+            }
+        }
     }
 }
 
+internal const val TARGET = "sink-a"
+
+internal enum class DemoScenario(val account: String, val title: String, val device: String) {
+    LEGAL("demo-legal", "Замена SIM", "known"),
+    FRAUD("demo-fraud", "Подозрительный вход", "new"),
+}
+
+internal enum class StandConnection(val title: String, val url: String) {
+    EMULATOR("Эмулятор", "http://10.0.2.2:8080"),
+    DEVICE("Устройство · adb reverse", "http://127.0.0.1:8080"),
+}
+
+internal enum class Page { HOME, EXPENSES, CATALOG, SUPPORT, CALLS, SERVICES, FORWARDING }
+
+private data class PendingConfirmation(val operationId: String, val confirmationId: String)
+
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
-private fun DemoScreen() {
-    var baseUrl by remember { mutableStateOf("http://10.0.2.2:8080") }
-    var account by remember { mutableStateOf("demo-legal") }
-    var result by remember { mutableStateOf("Выберите синтетический сценарий. Назначение: sink-a.") }
-    var operationId by remember { mutableStateOf("") }
-    var confirmationId by remember { mutableStateOf("") }
+private fun DemoApp(onStatusBarChanged: (Boolean) -> Unit) {
+    var page by rememberSaveable { mutableStateOf(Page.HOME) }
+    var tab by rememberSaveable { mutableStateOf(Page.HOME) }
+    var forwardingOrigin by rememberSaveable { mutableStateOf(Page.CALLS) }
+    var connection by rememberSaveable { mutableStateOf(StandConnection.EMULATOR) }
+    var scenario by rememberSaveable { mutableStateOf(DemoScenario.LEGAL) }
+    var pending by remember { mutableStateOf<PendingConfirmation?>(null) }
+    var outcome by remember { mutableStateOf<String?>(null) }
+    var service by remember { mutableStateOf<DemoService?>(null) }
+    var failure by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    fun runRequest(block: suspend () -> Unit) {
-        busy = true
-        scope.launch { try { block() } catch (error: Exception) { result = error.message ?: "Ошибка связи" } finally { busy = false } }
+
+    fun clearResult() {
+        pending = null
+        outcome = null
+        service = null
+        failure = null
     }
-    Surface(modifier = Modifier.fillMaxSize()) {
-        Column(Modifier.padding(24.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("Сессионный антифрод", style = MaterialTheme.typography.headlineMedium)
-            Text("Учебный стенд · только синтетика. Аттестация и подтверждение — тестовые подстановки. Реальные номера не вводятся.")
-            OutlinedTextField(value = baseUrl, onValueChange = { baseUrl = it }, label = { Text("Адрес изолированного стенда") }, enabled = !busy)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                for (item in listOf("demo-legal", "demo-fraud")) {
-                    FilterChip(selected = account == item, onClick = { account = item; confirmationId = "" }, label = { Text(item) }, enabled = !busy)
+
+    fun request(onFailure: String, action: suspend (DemoApi) -> Unit) {
+        if (busy) return
+        busy = true
+        failure = null
+        val api = DemoApi(connection)
+        scope.launch {
+            try {
+                action(api)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                failure = onFailure
+            } finally {
+                busy = false
+            }
+        }
+    }
+
+    fun refreshService() {
+        val selected = scenario
+        request("Не удалось загрузить настройки переадресации.") { api ->
+            service = api.service(selected)
+        }
+    }
+
+    suspend fun refreshAfterAdd(api: DemoApi, selected: DemoScenario, previousChanges: Int) {
+        repeat(5) { attempt ->
+            if (attempt > 0) delay(250)
+            val current = api.service(selected)
+            service = current
+            if (current.target == TARGET && current.changes > previousChanges) return
+        }
+    }
+
+    fun selectTab(destination: Page) {
+        tab = destination
+        page = destination
+    }
+
+    fun openForwarding() {
+        forwardingOrigin = page
+        page = Page.FORWARDING
+    }
+
+    fun goBack() {
+        when (page) {
+            Page.FORWARDING -> page = forwardingOrigin
+            Page.SERVICES -> page = tab
+            else -> selectTab(Page.HOME)
+        }
+    }
+
+    BackHandler(enabled = page != Page.HOME) { goBack() }
+    LaunchedEffect(page) {
+        if (page == Page.FORWARDING) refreshService()
+    }
+    SideEffect {
+        onStatusBarChanged(page in listOf(Page.HOME, Page.CATALOG, Page.SUPPORT, Page.CALLS))
+    }
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        containerColor = MobileColors.Surface,
+        bottomBar = { MobileNavigation(tab, ::selectTab) },
+    ) { insets ->
+        Box(Modifier.fillMaxSize().padding(insets)) {
+            key(page) {
+                when (page) {
+                    Page.HOME -> HomePage(
+                        onExpenses = { selectTab(Page.EXPENSES) },
+                        onServices = { page = Page.SERVICES },
+                        onForwarding = ::openForwarding,
+                        onSupport = { selectTab(Page.SUPPORT) },
+                        onSearch = { selectTab(Page.CATALOG) },
+                    )
+                    Page.EXPENSES -> ExpensesPage(::goBack)
+                    Page.CATALOG -> CatalogPage(
+                        onServices = { page = Page.SERVICES },
+                        onForwarding = ::openForwarding,
+                        onSupport = { selectTab(Page.SUPPORT) },
+                    )
+                    Page.SUPPORT -> SupportPage(
+                        connection = connection,
+                        scenario = scenario,
+                        busy = busy,
+                        onConnection = { selected ->
+                            if (selected != connection) {
+                                connection = selected
+                                clearResult()
+                            }
+                        },
+                        onScenario = { selected ->
+                            if (selected != scenario) {
+                                scenario = selected
+                                clearResult()
+                            }
+                        },
+                    )
+                    Page.CALLS -> CallsPage(::openForwarding)
+                    Page.SERVICES -> ServicesPage(::goBack, ::openForwarding)
+                    Page.FORWARDING -> ForwardingPage(
+                        scenario = scenario,
+                        onBack = ::goBack,
+                        outcome = outcome,
+                        awaitingConfirmation = pending != null,
+                        service = service,
+                        failure = failure,
+                        busy = busy,
+                        onEvaluate = {
+                            outcome = null
+                            val selected = scenario
+                            val operationId = UUID.randomUUID().toString()
+                            request("Не удалось добавить переадресацию. Обновите настройки перед повторной попыткой.") { api ->
+                                val previous = api.service(selected)
+                                service = previous
+                                if (previous.target != "disabled") return@request
+                                val result = api.evaluate(selected, operationId)
+                                outcome = result.outcome
+                                pending = result.confirmationId?.let { PendingConfirmation(operationId, it) }
+                                if (result.outcome == "allow") refreshAfterAdd(api, selected, previous.changes)
+                            }
+                        },
+                        onConfirm = {
+                            val challenge = pending
+                            if (challenge != null && !busy) {
+                                pending = null
+                                val selected = scenario
+                                val previousChanges = service?.changes ?: 0
+                                request("Не удалось подтвердить переадресацию. Обновите настройки перед повторной попыткой.") { api ->
+                                    val result = api.confirm(selected, challenge.operationId, challenge.confirmationId)
+                                    outcome = result.outcome
+                                    if (result.outcome == "allow") refreshAfterAdd(api, selected, previousChanges)
+                                }
+                            }
+                        },
+                        onCancelConfirmation = {
+                            pending = null
+                            outcome = null
+                        },
+                        onRefresh = ::refreshService,
+                    )
                 }
             }
-            Text("Аккаунт: $account\nОперация: включить переадресацию → sink-a")
-            Button(enabled = !busy, onClick = {
-                confirmationId = ""
-                operationId = UUID.randomUUID().toString()
-                runRequest {
-                    val decision = DemoApi(baseUrl).request("/v1/evaluate", JSONObject()
-                        .put("accountId", account).put("operationId", operationId).put("target", "sink-a")
-                        .put("device", if (account == "demo-fraud") "new" else "known").put("attestation", "demo-valid"))
-                    confirmationId = decision.optString("confirmationId")
-                    result = "Решение: ${decision.getString("result")}\nПолитика: ${decision.getString("policyVersion")}\n${decision.getString("decisionId")}"
-                }
-            }) { Text("Проверить защищённое действие") }
-            if (confirmationId.isNotEmpty()) {
-                Text("Подтвердить конкретное изменение $account → sink-a? Это тестовая замена независимого подтверждения.")
-                Button(enabled = !busy, onClick = {
-                    runRequest {
-                        val decision = DemoApi(baseUrl).request("/v1/confirm", JSONObject().put("accountId", account)
-                            .put("operationId", operationId).put("confirmationId", confirmationId).put("proof", "demo-approved"))
-                        confirmationId = ""
-                        result = "Решение: ${decision.getString("result")}. Доставка команды выполняется отдельно."
-                    }
-                }) { Text("Тест: подтверждаю sink-a") }
-            }
-            Button(enabled = !busy, onClick = {
-                runRequest {
-                    val state = DemoApi(baseUrl).request("/v1/state/$account")
-                    result = "Услуга на сервере: ${state.getString("target")}\nИзменений: ${state.getInt("changes")}\nРешений: ${state.getJSONArray("decisions").length()}\nАудит: ${state.getJSONArray("audit").length()} записей"
-                }
-            }) { Text("Проверить состояние услуги") }
-            if (busy) LinearProgressIndicator()
-            Text(result, style = MaterialTheme.typography.bodyLarge)
         }
     }
 }

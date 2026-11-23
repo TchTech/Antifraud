@@ -52,12 +52,20 @@ bash gradlew assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-В эмуляторе адрес `http://10.0.2.2:8080` уже задан на экране. Для устройства команды используйте `adb reverse tcp:8080 tcp:8080` и `http://127.0.0.1:8080`. Сначала поднимите backend и collector. Выберите demo-fraud/demo-legal, проверьте действие, для legal нажмите явное тестовое подтверждение, затем «Проверить состояние услуги». HTTP разрешён только для изолированного демо; реальные номера не вводятся. APK собран, физическое устройство и Play Integrity ещё не проверены.
+Сначала поднимите backend и collector. Приложение по умолчанию подключается через мост эмулятора `http://10.0.2.2:8080`. Для устройства команды выполните `adb reverse tcp:8080 tcp:8080` и выберите «Устройство · adb reverse» в «Поддержке». Там же выберите «Подозрительный вход» или «Замена SIM». Откройте «Звонки» → «Переадресация» → «Добавить переадресацию». Выберите «Все вызовы» и нажмите «Добавить». Для «Замены SIM» подтвердите операцию в учебном диалоге и дождитесь карточки подключённой услуги. [Контракт Android](apps/mobile/DESIGN_CONTRACT.md)
 
 API-контракты: `contracts/external.json`, `contracts/internal.json` (OpenAPI); тела проверяются middleware, HTTP-обвязка и Go-типы сгенерированы oapi-codegen. Изменяйте источник схем в `scripts/contracts.py`; SQL — в db/queries и Goose db/migrations. Генерируемые файлы вручную не редактируются. Шлюз ждёт скорер максимум 1.5с; при ошибке возвращает 503 без изменения услуги.
 
 Документация: [архитектура и приёмочный HA-контур](docs/architecture/README.md), [ADR по стеку](docs/adr/ADR-008-stack.md), [исходные требования и покрытие](docs/traceability.md), [OpenSpec](openspec/changes/protect-call-forwarding/design.md), [фактические проверки](docs/verification.md), [будущий нагрузочный профиль](docs/load/README.md), [grill-with-docs](docs/grill-with-docs.md). ADR-007 сохраняет Accepted для учебного проекта. Автоматическое секционирование/очистка, HA, Play Integrity, выбор passkey/ключа, recovery и отдельный сервис услуги остаются задачами следующего этапа. USSD и кол-центр не подключены.
 
 `make lint` проверяет формат Go, `go vet`, синтетические значения OpenAPI, трассировку требований и SHA-пины Actions. `make compose-lint` проверяет привязку к loopback и изоляцию контейнеров. `make protection` с тем же `TEST_DATABASE_URL`, что у `make e2e`, выдаёт события Go test в JSON Lines для защитной матрицы. [Результат и интерпретация прогона](docs/verification.md).
+
+`make evaluate` или `./scripts/dev.ps1 evaluate` с `TEST_DATABASE_URL` той же выделенной БД формирует `metrics.json` и `metrics.md`. В PR отчёт показывает дельты относительно базового коммита. [Замер и критерии для агента](docs/evaluation.md).
+
+`make evaluate-burst` или `./scripts/dev.ps1 evaluate-burst` сравнивает исходы тех же пяти случаев без фона и при всплеске. [Как читать результат](docs/evaluation.md#те-же-сценарии-при-всплеске)
+
+`make load` или `./scripts/dev.ps1 load` измеряет задержку, достигнутые запросы/с, ошибки и пропуски на отдельном loopback-шлюзе. [Запуск стенда и сравнение результатов](docs/load/README.md)
+
+Workflow `release metrics` сохраняет сводку и сырые отчёты у черновика релиза. [Порядок запуска](docs/release-metrics.md)
 
 Проверки CI: линтеры, Go test с `-race`, повторная генерация, PostgreSQL integration и migration down/up, HTTP Compose demo, OpenSpec validation, Android assembleDebug. Отдельный workflow security: gosec (SAST), govulncheck (SCA), gitleaks (секреты в истории), Trivy (скан образа, HIGH/CRITICAL блокируют), плюс Dependabot для Go/Gradle/Docker/Actions. Приёмка задержки под полной нагрузкой ADR и проверка RPO/RTO требуют отдельных прогонов.

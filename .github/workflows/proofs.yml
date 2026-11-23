@@ -1,0 +1,29 @@
+name: formal proofs
+on:
+  push:
+    branches: [main]
+    paths: ['formal/**', '.github/workflows/proofs.yml', 'Makefile']
+  pull_request:
+    paths: ['formal/**', '.github/workflows/proofs.yml', 'Makefile']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lean:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install the pinned Lean release
+        run: |
+          toolchain=$(cat formal/lean-toolchain)
+          version=${toolchain#leanprover/lean4:v}
+          archive="lean-${version}-linux.tar.zst"
+          curl --fail --location --retry 3 \
+            "https://github.com/leanprover/lean4/releases/download/v${version}/${archive}" \
+            --output "$RUNNER_TEMP/$archive"
+          printf '%s  %s\n' '2b7ab1ed8b92d2e6abfaf41344823b510064dbc9c0260cac73eb496ab2dea6eb' \
+            "$RUNNER_TEMP/$archive" | sha256sum --check --status
+          tar --zstd -xf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/lean-${version}-linux/bin" >> "$GITHUB_PATH"
+      - run: make proof

@@ -42,7 +42,42 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with: {go-version: '1.26.11'}
-      - run: make e2e
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with: {python-version: '3.12'}
+      - name: Check out the exact PR base
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: evaluation-base
+          persist-credentials: false
+      - name: Measure the PR base with the candidate evaluator
+        if: github.event_name == 'pull_request'
+        run: |
+          cp tests/evaluation_test.go tests/evaluation_burst_test.go evaluation-base/tests/
+          cd evaluation-base
+          python ../scripts/evaluate.py --output ../evaluation-results/base
+      - name: Measure the current commit
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = 'pull_request' ]; then
+            python scripts/evaluate.py --baseline evaluation-results/base/metrics.json --output evaluation-results/current
+          else
+            python scripts/evaluate.py --output evaluation-results/current
+          fi
+          cat evaluation-results/current/metrics.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Measure the same cases during a burst
+        run: |
+          python scripts/evaluate.py --burst --baseline evaluation-results/current/metrics.json --output evaluation-results/burst
+          cat evaluation-results/burst/metrics.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload evaluation reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: policy-evaluation
+          path: evaluation-results/
+          retention-days: 14
+      - if: ${{ !cancelled() }}
+        run: make e2e
   demo:
     runs-on: ubuntu-latest
     timeout-minutes: 20

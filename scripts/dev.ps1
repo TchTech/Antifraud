@@ -1,4 +1,11 @@
-param([ValidateSet('generate','lint','compose-lint','check','e2e','protection','demo','migrate','build','android')][string]$Task='check')
+param(
+    [ValidateSet('generate','lint','compose-lint','check','e2e','protection','evaluate','evaluate-burst','load','proof','demo','migrate','build','android')][string]$Task='check',
+    [string]$Baseline,
+    [string]$Output,
+    [string]$ServerRef,
+    [string]$Profile,
+    [switch]$CheckBudget
+)
 $ErrorActionPreference = 'Stop'
 Set-Location (Split-Path $PSScriptRoot -Parent)
 $env:GOCACHE = "$PWD/.local/go-build"
@@ -15,6 +22,33 @@ switch ($Task) {
     check { Lint; Run { go test ./... } }
     e2e { Run { go test -tags integration -count=1 -v ./tests/... } }
     protection { Run { go test -tags integration -count=1 -json -run '^TestSyntheticProtectionControls$' ./tests } }
+    evaluate {
+        $evaluationArgs = @()
+        if ($Baseline) { $evaluationArgs += @('--baseline', $Baseline) }
+        if ($Output) { $evaluationArgs += @('--output', $Output) }
+        Run { python scripts/evaluate.py @evaluationArgs }
+    }
+    'evaluate-burst' {
+        Run { python scripts/evaluate.py }
+        Run { python scripts/evaluate.py --burst --baseline .local/evaluation/metrics.json --output .local/evaluation-burst }
+    }
+    load {
+        $loadArgs = @()
+        if ($Baseline) { $loadArgs += @('--baseline', $Baseline) }
+        if ($Output) { $loadArgs += @('--output', $Output) }
+        if ($ServerRef) { $loadArgs += @('--server-ref', $ServerRef) }
+        if ($Profile) { $loadArgs += @('--profile', $Profile) }
+        if ($CheckBudget) { $loadArgs += '--check' }
+        Run { python scripts/load.py @loadArgs }
+    }
+    proof {
+        $version = (Get-Content formal/lean-toolchain -Raw).Trim() -replace '^leanprover/lean4:v', ''
+        $cachedLean = Join-Path $PWD ".local/lean-toolchain/lean-$version-windows/bin/lean.exe"
+        $leanCommand = if (Test-Path -LiteralPath $cachedLean) { $cachedLean } else { 'lean' }
+        Push-Location formal
+        try { Run { & $leanCommand -DwarningAsError=true Authorization.lean } }
+        finally { Pop-Location }
+    }
     migrate { Run { go run ./cmd/risk -migrate up } }
     build {
         New-Item -ItemType Directory -Force .local/bin | Out-Null

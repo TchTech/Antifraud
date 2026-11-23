@@ -1,0 +1,12 @@
+{
+  "name": "gateway-protected-checks-v1",
+  "max_in_flight": 40,
+  "timeout_ms": 2000,
+  "phases": [
+    {"name": "warmup", "seconds": 5, "requests_per_second": 10},
+    {"name": "steady", "seconds": 15, "requests_per_second": 10},
+    {"name": "burst", "seconds": 15, "requests_per_second": 100},
+    {"name": "recovery", "seconds": 10, "requests_per_second": 10}
+  ],
+  "budget": {"max_p99_ms": 200, "max_failures": 0, "max_dropped": 0}
+}
