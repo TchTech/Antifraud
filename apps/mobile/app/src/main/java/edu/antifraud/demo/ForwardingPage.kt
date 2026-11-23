@@ -50,6 +50,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
 private const val ALL_CALLS = "Все вызовы"
+private const val TRAINING_NUMBER_LABEL = "Учебный номер"
 
 @Composable
 internal fun ForwardingPage(
@@ -66,7 +67,7 @@ internal fun ForwardingPage(
     onRefresh: () -> Unit,
 ) {
     var adding by remember { mutableStateOf(false) }
-    val active = service?.target?.takeUnless { it == "disabled" }
+    val active = service != null && service.target != "disabled"
     Column(Modifier.fillMaxSize()) {
         Box {
             PlainHeader("Мой МТС", "Учебный профиль", onBack)
@@ -81,10 +82,10 @@ internal fun ForwardingPage(
             ScreenContent {
                 Text("Переадресация вызовов", style = MaterialTheme.typography.headlineMedium)
 
-                if (active != null) {
+                if (active) {
                     InfoCard(modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }) {
                         Text(ALL_CALLS, style = MaterialTheme.typography.titleMedium)
-                        Text("Переадресовываются на $active", style = MaterialTheme.typography.bodyLarge)
+                        Text(TRAINING_NUMBER_LABEL, style = MaterialTheme.typography.bodyLarge)
                         Text("Подключена", color = MobileColors.Green, style = MaterialTheme.typography.bodyMedium)
                     }
                 } else {
@@ -102,7 +103,7 @@ internal fun ForwardingPage(
                         Text("Изменение временно недоступно. Попробуйте позже.")
                     }
                 }
-                if (failure != null || (outcome == "allow" && active == null)) {
+                if (failure != null || (outcome == "allow" && !active)) {
                     InfoCard(modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }, color = MobileColors.Neutral) {
                         Text(failure ?: "Настройка ещё применяется.")
                         TextButton(onClick = onRefresh, enabled = !busy) { Text("Обновить") }
@@ -113,7 +114,7 @@ internal fun ForwardingPage(
         if (busy) {
             LinearProgressIndicator(Modifier.fillMaxWidth())
         }
-        if (active == null) {
+        if (!active) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
                 ForwardingButton("Добавить переадресацию", !busy && outcome != "allow") { adding = true }
             }
@@ -133,7 +134,7 @@ internal fun ForwardingPage(
             title = { Text("Подтвердите переадресацию") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Все вызовы будут перенаправляться на $TARGET.")
+                    Text("Все вызовы будут перенаправляться на учебный номер.")
                     Text("Аккаунт ${scenario.account}")
                     Text("Подтверждение в учебном профиле", color = MobileColors.Muted)
                 }
@@ -216,12 +217,11 @@ private fun AddForwardingSheet(onClose: () -> Unit, onAdd: () -> Unit) {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("Переадресовать на номер", style = MaterialTheme.typography.titleMedium)
                         OutlinedTextField(
-                            value = TARGET,
+                            value = TRAINING_NUMBER_LABEL,
                             onValueChange = {},
                             readOnly = true,
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
-                            supportingText = { Text("Учебное назначение") },
                         )
                     }
                 }
