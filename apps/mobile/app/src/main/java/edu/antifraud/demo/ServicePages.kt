@@ -4,7 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -78,10 +80,10 @@ internal fun HomePage(
                     Text("Найти услугу", style = MaterialTheme.typography.bodyLarge, color = MobileColors.Muted)
                 }
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HomeShortcut("Мои услуги", Icons.Filled.List, onServices, Modifier.weight(1f), MobileColors.Ice, MobileColors.Ocean)
-                HomeShortcut("Переадресация", Icons.Filled.Call, onForwarding, Modifier.weight(1f), MobileColors.Rose, MobileColors.Red)
-                HomeShortcut("Стенд", Icons.Filled.Settings, onSupport, Modifier.weight(1f), MobileColors.Lavender, MobileColors.Violet)
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                HomeShortcut("Мои услуги", Icons.Filled.List, onServices, Modifier.weight(.86f).fillMaxHeight(), MobileColors.Ice, MobileColors.Ocean)
+                HomeShortcut("Пере\u00ADадресация", Icons.Filled.Call, onForwarding, Modifier.weight(1.28f).fillMaxHeight(), MobileColors.Rose, MobileColors.Red)
+                HomeShortcut("Стенд", Icons.Filled.Settings, onSupport, Modifier.weight(.86f).fillMaxHeight(), MobileColors.Lavender, MobileColors.Violet)
             }
         }
         Box(
@@ -97,13 +99,13 @@ internal fun HomePage(
                     Text("153,29 ₽", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.weight(1f))
                     Button(onClick = onExpenses) { Text("Расходы") }
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    InfoCard(Modifier.weight(1f), onClick = onExpenses) {
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    InfoCard(Modifier.weight(1f).fillMaxHeight(), onClick = onExpenses) {
                         Text("Расходы в августе", style = MaterialTheme.typography.labelLarge)
                         Text("151 ₽", style = MaterialTheme.typography.titleMedium)
                         UsageTrack(.83f)
                     }
-                    InfoCard(Modifier.weight(1f), onClick = onServices) {
+                    InfoCard(Modifier.weight(1f).fillMaxHeight(), onClick = onServices) {
                         Text("Подключённые услуги", style = MaterialTheme.typography.labelLarge)
                         Text("Тариф и звонки", color = MobileColors.Muted, style = MaterialTheme.typography.bodyMedium)
                     }
