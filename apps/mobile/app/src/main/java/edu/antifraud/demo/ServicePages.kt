@@ -56,6 +56,12 @@ internal fun HomePage(
     onSupport: () -> Unit,
     onSearch: () -> Unit,
 ) {
+    val compact = compactLargeText()
+    val shortcuts = listOf(
+        Shortcut("Мои услуги", Icons.Filled.List, onServices, MobileColors.Ice, MobileColors.Ocean),
+        Shortcut("Пере\u00ADадресация", Icons.Filled.Call, onForwarding, MobileColors.Rose, MobileColors.Red, weight = 1.28f),
+        Shortcut("Стенд", Icons.Filled.Settings, onSupport, MobileColors.Lavender, MobileColors.Violet),
+    )
     ScrollPage {
         RibbonHeader {
             Row(
@@ -80,10 +86,16 @@ internal fun HomePage(
                     Text("Найти услугу", style = MaterialTheme.typography.bodyLarge, color = MobileColors.Muted)
                 }
             }
-            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HomeShortcut("Мои услуги", Icons.Filled.List, onServices, Modifier.weight(.86f).fillMaxHeight(), MobileColors.Ice, MobileColors.Ocean)
-                HomeShortcut("Пере\u00ADадресация", Icons.Filled.Call, onForwarding, Modifier.weight(1.28f).fillMaxHeight(), MobileColors.Rose, MobileColors.Red)
-                HomeShortcut("Стенд", Icons.Filled.Settings, onSupport, Modifier.weight(.86f).fillMaxHeight(), MobileColors.Lavender, MobileColors.Violet)
+            if (compact) {
+                for (shortcut in shortcuts) {
+                    HomeShortcut(shortcut, Modifier.fillMaxWidth(), horizontal = true)
+                }
+            } else {
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for (shortcut in shortcuts) {
+                        HomeShortcut(shortcut, Modifier.weight(shortcut.weight).fillMaxHeight(), horizontal = false)
+                    }
+                }
             }
         }
         Box(
@@ -91,23 +103,23 @@ internal fun HomePage(
                 .background(MobileColors.Backdrop),
         ) {
             ScreenContent {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("153,29 ₽", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.weight(1f))
+                if (compact) {
+                    Text("153,29 ₽", style = MaterialTheme.typography.headlineLarge)
                     Button(onClick = onExpenses) { Text("Расходы") }
-                }
-                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    InfoCard(Modifier.weight(1f).fillMaxHeight(), onClick = onExpenses) {
-                        Text("Расходы в августе", style = MaterialTheme.typography.labelLarge)
-                        Text("151 ₽", style = MaterialTheme.typography.titleMedium)
-                        UsageTrack(.83f)
+                    ExpenseSummary(Modifier.fillMaxWidth(), onExpenses)
+                    ServiceSummary(Modifier.fillMaxWidth(), onServices)
+                } else {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("153,29 ₽", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.weight(1f))
+                        Button(onClick = onExpenses) { Text("Расходы") }
                     }
-                    InfoCard(Modifier.weight(1f).fillMaxHeight(), onClick = onServices) {
-                        Text("Подключённые услуги", style = MaterialTheme.typography.labelLarge)
-                        Text("Тариф и звонки", color = MobileColors.Muted, style = MaterialTheme.typography.bodyMedium)
+                    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        ExpenseSummary(Modifier.weight(1f).fillMaxHeight(), onExpenses)
+                        ServiceSummary(Modifier.weight(1f).fillMaxHeight(), onServices)
                     }
                 }
                 TariffCard()
@@ -120,18 +132,44 @@ internal fun HomePage(
     }
 }
 
+private data class Shortcut(
+    val title: String,
+    val icon: ImageVector,
+    val action: () -> Unit,
+    val background: Color,
+    val tint: Color,
+    val weight: Float = .86f,
+)
+
 @Composable
-private fun HomeShortcut(
-    title: String,
-    icon: ImageVector,
-    onClick: () -> Unit,
-    modifier: Modifier,
-    background: Color,
-    tint: Color,
-) {
-    InfoCard(modifier, color = background, onClick = onClick) {
-        IconTile(icon, Color.White, tint)
-        Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+private fun HomeShortcut(shortcut: Shortcut, modifier: Modifier, horizontal: Boolean) {
+    InfoCard(modifier, color = shortcut.background, onClick = shortcut.action) {
+        if (horizontal) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconTile(shortcut.icon, Color.White, shortcut.tint)
+                Text(shortcut.title, style = MaterialTheme.typography.labelLarge)
+            }
+        } else {
+            IconTile(shortcut.icon, Color.White, shortcut.tint)
+            Text(shortcut.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+private fun ExpenseSummary(modifier: Modifier, onExpenses: () -> Unit) {
+    InfoCard(modifier, onClick = onExpenses) {
+        Text("Расходы в августе", style = MaterialTheme.typography.labelLarge)
+        Text("151 ₽", style = MaterialTheme.typography.titleMedium)
+        UsageTrack(.83f)
+    }
+}
+
+@Composable
+private fun ServiceSummary(modifier: Modifier, onServices: () -> Unit) {
+    InfoCard(modifier, onClick = onServices) {
+        Text("Подключённые услуги", style = MaterialTheme.typography.labelLarge)
+        Text("Тариф и звонки", color = MobileColors.Muted, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
@@ -176,10 +214,16 @@ private fun TariffCard() {
     InfoCard(modifier = Modifier.fillMaxWidth()) {
         Text("Персональный", style = MaterialTheme.typography.titleMedium)
         Text("150 ₽/мес", style = MaterialTheme.typography.bodyMedium, color = MobileColors.Muted)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            TariffUsage("∞ ГБ", "Интернет", .95f, Modifier.weight(1f))
-            TariffUsage("400 мин", "Звонки", .86f, Modifier.weight(1f))
-            TariffUsage("100 SMS", "Сообщения", .64f, Modifier.weight(1f))
+        if (compactLargeText()) {
+            TariffUsage("∞ ГБ", "Интернет", .95f, Modifier.fillMaxWidth())
+            TariffUsage("400 мин", "Звонки", .86f, Modifier.fillMaxWidth())
+            TariffUsage("100 SMS", "Сообщения", .64f, Modifier.fillMaxWidth())
+        } else {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                TariffUsage("∞ ГБ", "Интернет", .95f, Modifier.weight(1f))
+                TariffUsage("400 мин", "Звонки", .86f, Modifier.weight(1f))
+                TariffUsage("100 SMS", "Сообщения", .64f, Modifier.weight(1f))
+            }
         }
     }
 }

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -46,6 +47,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -114,7 +117,14 @@ private val tabs = listOf(
 )
 
 @Composable
+internal fun compactLargeText(): Boolean {
+    val configuration = LocalConfiguration.current
+    return configuration.screenWidthDp < 350 && configuration.fontScale > 1.15f
+}
+
+@Composable
 internal fun MobileNavigation(selected: Page, onSelect: (Page) -> Unit) {
+    val compact = compactLargeText()
     Column {
         Divider()
         NavigationBar(
@@ -123,7 +133,39 @@ internal fun MobileNavigation(selected: Page, onSelect: (Page) -> Unit) {
         ) {
             for (tab in tabs) {
                 val active = tab.page == selected
-                NavigationBarItem(
+                if (compact) {
+                    val label = when (tab.page) {
+                        Page.HOME -> "Мой\nМТС"
+                        Page.SUPPORT -> "Помощь"
+                        else -> tab.label
+                    }
+                    Column(
+                        Modifier.weight(1f).heightIn(min = 80.dp)
+                            .selectable(selected = active, role = Role.Tab, onClick = { onSelect(tab.page) })
+                            .padding(top = 8.dp, bottom = 4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Box(
+                            Modifier.size(width = 42.dp, height = 28.dp).clip(CircleShape)
+                                .background(if (active) MobileColors.Rose else Color.Transparent),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                tab.icon,
+                                contentDescription = null,
+                                tint = if (active) MobileColors.Red else MobileColors.Muted,
+                                modifier = Modifier.size(23.dp),
+                            )
+                        }
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (active) MobileColors.ActionRed else MobileColors.Muted,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                } else NavigationBarItem(
                     selected = active,
                     onClick = { onSelect(tab.page) },
                     icon = { Icon(tab.icon, contentDescription = null, modifier = Modifier.size(23.dp)) },
